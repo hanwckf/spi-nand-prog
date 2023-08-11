@@ -27,6 +27,7 @@ extern "C" {
 #define CH347_SPI_MAX_FREQ 60000
 #define CH347_SPI_MAX_PRESCALER 7
 #define CH347_SPI_MAX_TRX 4096
+#define CH341_MAX_BULK_SIZE 510
 
 /* SPI_data_direction */
 #define SPI_Direction_2Lines_FullDuplex 0x0000
@@ -95,7 +96,7 @@ struct ch347_priv {
     struct ch347_spi_hw_config cfg;
     libusb_context *ctx;
     libusb_device_handle *handle;
-    uint8_t tmpbuf[512];
+    uint8_t tmpbuf[CH341_MAX_BULK_SIZE];
 };
 
 struct ch347_priv *ch347_open();

@@ -18,31 +18,18 @@
 
 int ch347_spi_write_packet(struct ch347_priv *priv, uint8_t cmd, const void *tx, int len) {
     uint8_t *ptr;
-    int cur_len;
     int err, transferred;
-    if (len > CH347_SPI_MAX_TRX)
+    if (len > sizeof(priv->tmpbuf) - 3)
         return -EINVAL;
 
     priv->tmpbuf[0] = cmd;
     priv->tmpbuf[1] = len & 0xff;
     priv->tmpbuf[2] = len >> 8;
-    cur_len = sizeof(priv->tmpbuf) - 3;
-    if (len < cur_len)
-        cur_len = len;
-    memcpy(priv->tmpbuf + 3, tx, cur_len);
-    err = libusb_bulk_transfer(priv->handle, CH347_EPOUT, priv->tmpbuf, cur_len + 3, &transferred, 1000);
+    memcpy(priv->tmpbuf + 3, tx, len);
+    err = libusb_bulk_transfer(priv->handle, CH347_EPOUT, priv->tmpbuf, len + 3, &transferred, 1000);
     if (err) {
         fprintf(stderr, "ch347: libusb: failed to send packet: %d\n", err);
         return err;
-    }
-    if (cur_len < len) {
-        /* This discards the const qualifier. However, libusb won't be writing to it. */
-        ptr = (uint8_t *) (tx + cur_len);
-        err = libusb_bulk_transfer(priv->handle, CH347_EPOUT, ptr, len - cur_len, &transferred, 1000);
-        if (err) {
-            fprintf(stderr, "ch347: libusb: failed to send packet: %d\n", err);
-            return err;
-        }
     }
     return 0;
 }
@@ -203,7 +190,7 @@ int ch347_spi_tx(struct ch347_priv *priv, const void *tx, uint32_t len) {
     uint8_t unknown_data;
     const void *ptr = tx;
     while (len) {
-        int cur_len = len > CH347_SPI_MAX_TRX ? CH347_SPI_MAX_TRX : len;
+        int cur_len = len > sizeof(priv->tmpbuf) - 3 ? sizeof(priv->tmpbuf) - 3 : len;
         err = ch347_spi_write_packet(priv, CH347_CMD_SPI_BLCK_WR, ptr, cur_len);
         if (err)
             return err;
