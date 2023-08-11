@@ -25,6 +25,8 @@ set(SPI_NAND_SRCS
 	spi-nand/paragon.c
 	spi-nand/toshiba.c
 	spi-nand/winbond.c
+	spi-nand/esmt.c
+	spi-nand/xtx.c
 )
 add_executable(${EXE_NAME} ${SPI_MEM_SRCS} ${SPI_NAND_SRCS} main.c flashops.c)
 target_link_libraries(${EXE_NAME} ${libusb-1.0_LIBRARIES})
