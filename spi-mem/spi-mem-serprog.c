@@ -311,6 +311,9 @@ static struct spi_mem _serprog_mem = {
 static int serprog_init(const char *devpath, u32 speed)
 {
 	int ret;
+	if (!devpath)
+		devpath = "/dev/ttyACM0";
+
 	ret = serial_init(devpath);
 	if (ret < 0)
 		return ret;
