@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
 	int ret = 0;
 	const char *fpath = NULL;
 	FILE *fp = NULL;
-	char opt;
+	int opt;
 	int long_optind = 0;
 	int left_argc;
 	struct spinand_device *snand;
