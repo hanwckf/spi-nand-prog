@@ -1,22 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Author:
- * Felix Matouschek <felix@matouschek.org>
+ * Copyright (c) 2020 Rockchip Electronics Co., Ltd
+ *
+ * Authors:
+ *	Dingqiang Lin <jon.lin@rock-chips.com>
  */
 
 #include <spinand.h>
 
-#define SPINAND_MFR_XTX	0x0B
-
-#define XT26G0XA_STATUS_ECC_MASK	GENMASK(5, 2)
-#define XT26G0XA_STATUS_ECC_NO_DETECTED	(0 << 2)
-#define XT26G0XA_STATUS_ECC_8_CORRECTED	(3 << 4)
-#define XT26G0XA_STATUS_ECC_UNCOR_ERROR	(2 << 4)
+#define SPINAND_MFR_XTX			0x0B
 
 static SPINAND_OP_VARIANTS(read_cache_variants,
-		SPINAND_PAGE_READ_FROM_CACHE_QUADIO_OP(0, 1, NULL, 0),
 		SPINAND_PAGE_READ_FROM_CACHE_X4_OP(0, 1, NULL, 0),
-		SPINAND_PAGE_READ_FROM_CACHE_DUALIO_OP(0, 1, NULL, 0),
 		SPINAND_PAGE_READ_FROM_CACHE_X2_OP(0, 1, NULL, 0),
 		SPINAND_PAGE_READ_FROM_CACHE_OP(true, 0, 1, NULL, 0),
 		SPINAND_PAGE_READ_FROM_CACHE_OP(false, 0, 1, NULL, 0));
@@ -28,29 +23,71 @@ static SPINAND_OP_VARIANTS(write_cache_variants,
 static SPINAND_OP_VARIANTS(update_cache_variants,
 		SPINAND_PROG_LOAD_X4(false, 0, NULL, 0),
 		SPINAND_PROG_LOAD(false, 0, NULL, 0));
-
+/*
+ * ecc bits: 0xC0[2,5]
+ * [0x0000], No bit errors were detected;
+ * [0x0001, 0x0111], Bit errors were detected and corrected. Not
+ *	reach Flipping Bits;
+ * [0x1000], Multiple bit errors were detected and
+ *	not corrected.
+ * [0x1100], Bit error count equals the bit flip
+ *	detectionthreshold
+ * else, reserved
+ */
 static int xt26g0xa_ecc_get_status(struct spinand_device *spinand,
-					 u8 status)
+				   u8 status)
 {
-	status = status & XT26G0XA_STATUS_ECC_MASK;
+	u8 eccsr = (status & GENMASK(5, 2)) >> 2;
 
-	switch (status) {
-	case XT26G0XA_STATUS_ECC_NO_DETECTED:
-		return 0;
-	case XT26G0XA_STATUS_ECC_8_CORRECTED:
+	if (eccsr <= 7)
+		return eccsr;
+	else if (eccsr == 12)
 		return 8;
-	case XT26G0XA_STATUS_ECC_UNCOR_ERROR:
+	else
 		return -EBADMSG;
-	default:
-		break;
-	}
+}
 
-	/* At this point values greater than (2 << 4) are invalid  */
-	if (status > XT26G0XA_STATUS_ECC_UNCOR_ERROR)
-		return -EINVAL;
+/*
+ * ecc bits: 0xC0[4,6]
+ * [0x0], No bit errors were detected;
+ * [0x001, 0x011], Bit errors were detected and corrected. Not
+ *	reach Flipping Bits;
+ * [0x100], Bit error count equals the bit flip
+ *	detectionthreshold
+ * [0x101, 0x110], Reserved;
+ * [0x111], Multiple bit errors were detected and
+ *	not corrected.
+ */
+static int xt26g02b_ecc_get_status(struct spinand_device *spinand,
+				   u8 status)
+{
+	u8 eccsr = (status & GENMASK(6, 4)) >> 4;
 
-	/* (1 << 2) through (7 << 2) are 1-7 corrected errors */
-	return status >> 2;
+	if (eccsr <= 4)
+		return eccsr;
+	else
+		return -EBADMSG;
+}
+
+/*
+ * ecc bits: 0xC0[4,7]
+ * [0b0000], No bit errors were detected;
+ * [0b0001, 0b0111], 1-7 Bit errors were detected and corrected. Not
+ *	reach Flipping Bits;
+ * [0b1000], 8 Bit errors were detected and corrected. Bit error count
+ *	equals the bit flip detectionthreshold;
+ * [0b1111], Bit errors greater than ECC capability(8 bits) and not corrected;
+ * others, Reserved.
+ */
+static int xt26g01c_ecc_get_status(struct spinand_device *spinand,
+				   u8 status)
+{
+	u8 eccsr = (status & GENMASK(7, 4)) >> 4;
+
+	if (eccsr <= 8)
+		return eccsr;
+	else
+		return -EBADMSG;
 }
 
 static const struct spinand_info xtx_spinand_table[] = {
@@ -74,13 +111,67 @@ static const struct spinand_info xtx_spinand_table[] = {
 		     SPINAND_ECCINFO(xt26g0xa_ecc_get_status)),
 	SPINAND_INFO("XT26G04A",
 		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0xE3),
-		     NAND_MEMORG(1, 2048, 64, 128, 2048, 40, 1, 1, 1),
+		     NAND_MEMORG(1, 2048, 64, 128, 2048, 80, 1, 1, 1),
 		     NAND_ECCREQ(8, 512),
 		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
 					      &write_cache_variants,
 					      &update_cache_variants),
 		     SPINAND_HAS_QE_BIT,
 		     SPINAND_ECCINFO(xt26g0xa_ecc_get_status)),
+	SPINAND_INFO("XT26G01B",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0xF1),
+		     NAND_MEMORG(1, 2048, 64, 64, 1024, 20, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(xt26g0xa_ecc_get_status)),
+	SPINAND_INFO("XT26G02B",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0xF2),
+		     NAND_MEMORG(1, 2048, 64, 64, 2048, 40, 1, 1, 1),
+		     NAND_ECCREQ(4, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(xt26g02b_ecc_get_status)),
+	SPINAND_INFO("XT26G01C",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0x11),
+		     NAND_MEMORG(1, 2048, 128, 64, 1024, 20, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(xt26g01c_ecc_get_status)),
+	SPINAND_INFO("XT26G02C",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0x12),
+		     NAND_MEMORG(1, 2048, 64, 64, 2048, 40, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(xt26g01c_ecc_get_status)),
+	SPINAND_INFO("XT26G04C",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0x13),
+		     NAND_MEMORG(1, 4096, 256, 64, 2048, 80, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(xt26g01c_ecc_get_status)),
+	SPINAND_INFO("XT26G11C",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0x15),
+		     NAND_MEMORG(1, 2048, 128, 64, 1024, 20, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(xt26g01c_ecc_get_status)),
 };
 
 static const struct spinand_manufacturer_ops xtx_spinand_manuf_ops = {
