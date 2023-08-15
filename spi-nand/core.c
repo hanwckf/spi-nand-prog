@@ -558,6 +558,17 @@ static const struct spinand_manufacturer *spinand_manufacturers[] = {
 	&winbond_spinand_manufacturer,
 	&esmt_c8_spinand_manufacturer,
 	&xtx_spinand_manufacturer,
+	&biwin_spinand_manufacturer,
+	&dosilicon_spinand_manufacturer,
+	&etron_spinand_manufacturer,
+	&fmsh_spinand_manufacturer,
+	&foresee_spinand_manufacturer,
+	&gsto_spinand_manufacturer,
+	&hyf_spinand_manufacturer,
+	&jsc_spinand_manufacturer,
+	&silicongo_spinand_manufacturer,
+	&skyhigh_spinand_manufacturer,
+	&unim_spinand_manufacturer,
 };
 
 static int spinand_manufacturer_match(struct spinand_device *spinand,

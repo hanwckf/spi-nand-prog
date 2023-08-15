@@ -27,6 +27,17 @@ set(SPI_NAND_SRCS
 	spi-nand/winbond.c
 	spi-nand/esmt.c
 	spi-nand/xtx.c
+	spi-nand/biwin.c
+	spi-nand/dosilicon.c
+	spi-nand/etron.c
+	spi-nand/fmsh.c
+	spi-nand/foresee.c
+	spi-nand/gsto.c
+	spi-nand/hyf.c
+	spi-nand/jsc.c
+	spi-nand/silicongo.c
+	spi-nand/skyhigh.c
+	spi-nand/unim.c
 )
 add_executable(${EXE_NAME} ${SPI_MEM_SRCS} ${SPI_NAND_SRCS} main.c flashops.c)
 target_link_libraries(${EXE_NAME} ${libusb-1.0_LIBRARIES})
