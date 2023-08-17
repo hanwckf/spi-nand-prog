@@ -29,6 +29,23 @@ static SPINAND_OP_VARIANTS(update_cache_variants,
 		SPINAND_PROG_LOAD_X4(false, 0, NULL, 0),
 		SPINAND_PROG_LOAD(false, 0, NULL, 0));
 
+#define W25N02_N04KV_STATUS_ECC_MASK		(3 << 4)
+#define W25N02_N04KV_STATUS_ECC_NO_BITFLIPS	(0 << 4)
+#define W25N02_N04KV_STATUS_ECC_1_4_BITFLIPS	(1 << 4)
+#define W25N02_N04KV_STATUS_ECC_5_8_BITFLIPS	(3 << 4)
+#define W25N02_N04KV_STATUS_ECC_UNCOR_ERROR	(2 << 4)
+
+#define W25N01_M02GV_STATUS_ECC_MASK		(3 << 4)
+#define W25N01_M02GV_STATUS_ECC_NO_BITFLIPS	(0 << 4)
+#define W25N01_M02GV_STATUS_ECC_1_BITFLIPS	(1 << 4)
+#define W25N01_M02GV_STATUS_ECC_UNCOR_ERROR	(2 << 4)
+
+#define W25N01KV_STATUS_ECC_MASK		(3 << 4)
+#define W25N01KV_STATUS_ECC_NO_BITFLIPS		(0 << 4)
+#define W25N01KV_STATUS_ECC_1_3_BITFLIPS	(1 << 4)
+#define W25N01KV_STATUS_ECC_4_BITFLIPS		(3 << 4)
+#define W25N01KV_STATUS_ECC_UNCOR_ERROR		(2 << 4)
+
 static int w25m02gv_select_target(struct spinand_device *spinand,
 				  unsigned int target)
 {
@@ -43,35 +60,51 @@ static int w25m02gv_select_target(struct spinand_device *spinand,
 	return spi_mem_exec_op(spinand->spimem, &op);
 }
 
-static int w25n02kv_ecc_get_status(struct spinand_device *spinand,
-				   u8 status)
-{
-	struct nand_device *nand = spinand_to_nand(spinand);
-	u8 mbf = 0;
-	struct spi_mem_op op = SPINAND_GET_FEATURE_OP(0x30, &mbf);
 
-	switch (status & STATUS_ECC_MASK) {
-	case STATUS_ECC_NO_BITFLIPS:
+static int w25n01kv_ecc_get_status(struct spinand_device *spinand,
+					u8 status)
+{
+	switch (status & W25N01KV_STATUS_ECC_MASK) {
+	case W25N01KV_STATUS_ECC_NO_BITFLIPS:
 		return 0;
 
-	case STATUS_ECC_UNCOR_ERROR:
+	case W25N01KV_STATUS_ECC_1_3_BITFLIPS:
+		return 3;
+
+	case W25N01KV_STATUS_ECC_4_BITFLIPS:
+		return 4;
+
+	case W25N01KV_STATUS_ECC_UNCOR_ERROR:
 		return -EBADMSG;
 
-	case STATUS_ECC_HAS_BITFLIPS:
-		/*
-		 * Let's try to retrieve the real maximum number of bitflips
-		 * in order to avoid forcing the wear-leveling layer to move
-		 * data around if it's not necessary.
-		 */
-		if (spi_mem_exec_op(spinand->spimem, &op))
-			return nand->eccreq.strength;
+	default:
+		break;
+	}
 
-		mbf >>= 4;
+	return -EINVAL;
+}
 
-		if (mbf > nand->eccreq.strength || !mbf)
-			return nand->eccreq.strength;
+static int w25n02kv_n04kv_ecc_get_status(struct spinand_device *spinand,
+					u8 status)
+{
+	switch (status & W25N02_N04KV_STATUS_ECC_MASK) {
+	case W25N02_N04KV_STATUS_ECC_NO_BITFLIPS:
+		return 0;
 
-		return mbf;
+	case W25N02_N04KV_STATUS_ECC_1_4_BITFLIPS:
+		return 3;
+
+	case W25N02_N04KV_STATUS_ECC_5_8_BITFLIPS:
+		return 4;
+
+	/* W25N02_N04KV_use internal 8bit ECC algorithm.
+	 * But the ECC strength is 4 bit requried.
+	 * Return 3 if the bit bit flip count less than 5.
+	 * Return 4 if the bit bit flip count more than 5 to 8.
+	*/
+
+	case W25N02_N04KV_STATUS_ECC_UNCOR_ERROR:
+		return -EBADMSG;
 
 	default:
 		break;
@@ -102,13 +135,13 @@ static const struct spinand_info winbond_spinand_table[] = {
 		     SPINAND_ECCINFO(NULL)),
 	SPINAND_INFO("W25N02KV",
 		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_DUMMY, 0xaa, 0x22),
-		     NAND_MEMORG(1, 2048, 128, 64, 2048, 40, 1, 1, 1),
+		     NAND_MEMORG(1, 2048, 128, 64, 2048, 40, 2, 1, 1),
 		     NAND_ECCREQ(8, 512),
 		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
 					      &write_cache_variants,
 					      &update_cache_variants),
 		     0,
-		     SPINAND_ECCINFO(w25n02kv_ecc_get_status)),
+		     SPINAND_ECCINFO(w25n02kv_n04kv_ecc_get_status)),
 	SPINAND_INFO("W25N512GV",
 		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_DUMMY, 0xAA, 0x20),
 		     NAND_MEMORG(1, 2048, 64, 64, 512, 10, 1, 1, 1),
@@ -121,13 +154,13 @@ static const struct spinand_info winbond_spinand_table[] = {
 		     SPINAND_SELECT_TARGET(w25m02gv_select_target)),
 	SPINAND_INFO("W25N04KV",
 		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_DUMMY, 0xAA, 0x23),
-		     NAND_MEMORG(1, 2048, 128, 64, 4096, 40, 1, 1, 1),
+		     NAND_MEMORG(1, 2048, 128, 64, 4096, 40, 2, 1, 1),
 		     NAND_ECCREQ(8, 512),
 		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
 					      &write_cache_variants,
 					      &update_cache_variants),
 		     0,
-		     SPINAND_ECCINFO(w25n02kv_ecc_get_status)),
+		     SPINAND_ECCINFO(w25n02kv_n04kv_ecc_get_status)),
 	SPINAND_INFO("W25N01GW",
 		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_DUMMY, 0xBA, 0x21),
 		     NAND_MEMORG(1, 2048, 64, 64, 1024, 20, 1, 1, 1),
@@ -146,16 +179,16 @@ static const struct spinand_info winbond_spinand_table[] = {
 					      &write_cache_variants,
 					      &update_cache_variants),
 		     0,
-		     SPINAND_ECCINFO(w25n02kv_ecc_get_status)),
+		     SPINAND_ECCINFO(w25n02kv_n04kv_ecc_get_status)),
 	SPINAND_INFO("W25N01KV",
 		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_DUMMY, 0xAE, 0x21),
-		     NAND_MEMORG(1, 2048, 128, 64, 1024, 20, 1, 1, 1),
+		     NAND_MEMORG(1, 2048, 64, 64, 1024, 20, 1, 1, 1),
 		     NAND_ECCREQ(4, 512),
 		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
 					      &write_cache_variants,
 					      &update_cache_variants),
 		     0,
-		     SPINAND_ECCINFO(w25n02kv_ecc_get_status)),
+		     SPINAND_ECCINFO(w25n01kv_ecc_get_status)),
 };
 
 static int winbond_spinand_init(struct spinand_device *spinand)
