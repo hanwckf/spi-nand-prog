@@ -4,7 +4,7 @@
 
 struct spi_mem *spi_mem_probe(const char *drv, const char *drvarg) {
     if (!strcmp(drv, "ch347"))
-        return ch347_probe();
+        return ch347_probe(drvarg);
     if (!strcmp(drv, "fx2qspi"))
         return fx2qspi_probe();
     if (!strcmp(drv, "serprog"))

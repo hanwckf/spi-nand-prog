@@ -80,18 +80,21 @@ static struct spi_mem ch347_mem = {
         .drvpriv = NULL,
 };
 
-struct spi_mem *ch347_probe() {
+struct spi_mem *ch347_probe(const char* arg) {
     struct ch347_priv *priv;
     int ret;
+    int freq = 30000;
     priv = ch347_open();
     if (!priv)
         return NULL;
     ret = ch347_setup_spi(priv, 3, false, false, false);
     if (ret)
         return false;
-    int freq = 30000;
+    if (arg)
+        freq = strtoul(arg, NULL, 0);
     ch347_mem.drvpriv = priv;
     ret = ch347_set_spi_freq(priv, &freq);
+    printf("ch347: spi freq = %d khz\n", freq);
     return ret ? NULL : &ch347_mem;
 }
 
