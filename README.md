@@ -26,6 +26,20 @@ add the following arguments to select this driver:
 -d serprog -a /dev/ttyACM0
 ```
 
+## CH347 programmer hardware
+
+CH347 dual voltage (1.8V/3.3V) SPI/I2C/UART programmer
+
+**Note1: max speed of SPI clock is 30MHz**
+
+**Note2: CFG0 resistor is not connected**
+
+kicad project and gerber file: ch347-hardware/ch347-prog-v1.2-kicad_pro.zip
+
+![](ch347-hardware/ch347-prog-v1.2-3dpcb.jpg)
+
+![](ch347-hardware/ch347-prog-v1.2-sch.jpg)
+
 ## Usage
 ```
 spi-nand-prog <operation> [file name] [arguments]
