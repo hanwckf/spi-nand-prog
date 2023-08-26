@@ -1,14 +1,17 @@
-// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021 Rockchip Electronics Co., Ltd.
+ * Copyright (c) 2020 Etron Technology, Inc.
+ *
  */
 
 #include <spinand.h>
 
 #define SPINAND_MFR_ETRON		0xD5
 
+#define STATUS_ECC_LIMIT_BITFLIPS (3 << 4)
+
 static SPINAND_OP_VARIANTS(read_cache_variants,
-		SPINAND_PAGE_READ_FROM_CACHE_QUADIO_OP(0, 2, NULL, 0),
+		SPINAND_PAGE_READ_FROM_CACHE_QUADIO_OP(0, 1, NULL, 0),
 		SPINAND_PAGE_READ_FROM_CACHE_X4_OP(0, 1, NULL, 0),
 		SPINAND_PAGE_READ_FROM_CACHE_DUALIO_OP(0, 1, NULL, 0),
 		SPINAND_PAGE_READ_FROM_CACHE_X2_OP(0, 1, NULL, 0),
@@ -23,8 +26,8 @@ static SPINAND_OP_VARIANTS(update_cache_variants,
 		SPINAND_PROG_LOAD_X4(false, 0, NULL, 0),
 		SPINAND_PROG_LOAD(false, 0, NULL, 0));
 
-static int em73c044vcf_oh_ecc_get_status(struct spinand_device *spinand,
-					 u8 status)
+static int etron_ecc_get_status(struct spinand_device *spinand,
+				   u8 status)
 {
 	struct nand_device *nand = spinand_to_nand(spinand);
 
@@ -36,25 +39,95 @@ static int em73c044vcf_oh_ecc_get_status(struct spinand_device *spinand,
 		return -EBADMSG;
 
 	case STATUS_ECC_HAS_BITFLIPS:
-		return 1;
+		return nand->eccreq.strength >> 1;
+
+	case STATUS_ECC_LIMIT_BITFLIPS:
+		return nand->eccreq.strength;
 
 	default:
-		return nand->eccreq.strength;
+		break;
 	}
 
 	return -EINVAL;
 }
 
 static const struct spinand_info etron_spinand_table[] = {
-	SPINAND_INFO("EM73C044VCF-0H",
-		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0x36),
+	/* EM73C 1Gb 3.3V */
+	SPINAND_INFO("EM73C044VCF",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0x25),
 		     NAND_MEMORG(1, 2048, 64, 64, 1024, 20, 1, 1, 1),
 		     NAND_ECCREQ(4, 512),
 		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
 					      &write_cache_variants,
 					      &update_cache_variants),
 		     SPINAND_HAS_QE_BIT,
-		     SPINAND_ECCINFO(em73c044vcf_oh_ecc_get_status)),
+		     SPINAND_ECCINFO(etron_ecc_get_status)),
+	/* EM7xD 2Gb */
+	SPINAND_INFO("EM73D044VCR",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0x41),
+		     NAND_MEMORG(1, 2048, 64, 64, 2048, 40, 1, 1, 1),
+		     NAND_ECCREQ(4, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(etron_ecc_get_status)),
+	SPINAND_INFO("EM73D044VCO",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0x3A),
+		     NAND_MEMORG(1, 2048, 128, 64, 2048, 40, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(etron_ecc_get_status)),
+	SPINAND_INFO("EM78D044VCM",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0x8E),
+		     NAND_MEMORG(1, 2048, 128, 64, 2048, 40, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(etron_ecc_get_status)),
+	/* EM7xE 4Gb */
+	SPINAND_INFO("EM73E044VCE",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0x3B),
+		     NAND_MEMORG(1, 2048, 128, 64, 4096, 80, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(etron_ecc_get_status)),
+	SPINAND_INFO("EM78E044VCD",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0x8F),
+		     NAND_MEMORG(1, 2048, 128, 64, 4096, 80, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(etron_ecc_get_status)),
+	/* EM7xF044VCA 8Gb */
+	SPINAND_INFO("EM73F044VCA",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_DUMMY, 0x15),
+		     NAND_MEMORG(1, 4096, 256, 64, 4096, 80, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(etron_ecc_get_status)),
+	SPINAND_INFO("EM78F044VCA",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_DUMMY, 0x8D),
+		     NAND_MEMORG(1, 4096, 256, 64, 4096, 80, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(etron_ecc_get_status)),
 };
 
 static const struct spinand_manufacturer_ops etron_spinand_manuf_ops = {
