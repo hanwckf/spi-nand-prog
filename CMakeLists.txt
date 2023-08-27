@@ -40,4 +40,4 @@ set(SPI_NAND_SRCS
 	spi-nand/unim.c
 )
 add_executable(${EXE_NAME} ${SPI_MEM_SRCS} ${SPI_NAND_SRCS} main.c flashops.c)
-target_link_libraries(${EXE_NAME} ${libusb-1.0_LIBRARIES})
+target_link_libraries(${EXE_NAME} -Wl,-Bstatic ${libusb-1.0_LIBRARIES})
