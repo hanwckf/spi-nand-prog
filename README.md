@@ -16,13 +16,20 @@ A SPI-NAND flash programmer software botched together using SPI-MEM and SPI-NAND
 
 [WCH CH347](https://www.wch.cn/products/CH347.html)
 
-The default driver. No extra arguments needed. 
+The default driver.
+
+add the arguments to set CH347 SPI clock (KHz), default is 30000:
+
+```shell
+# set CH347 SPI clock to 15MHz
+-a 15000
+```
 
 [dword1511/stm32-vserprog](https://github.com/dword1511/stm32-vserprog)
 
 add the following arguments to select this driver:
 
-```
+```shell
 -d serprog -a /dev/ttyACM0
 ```
 
